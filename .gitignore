@@ -1,160 +1,89 @@
-# Byte-compiled / optimized / DLL files
-__pycache__/
-*.py[cod]
-*$py.class
+import logging
+from telegram import Update
+from telegram.ext import Updater, CommandHandler, MessageHandler, Filters, ConversationHandler, CallbackContext
 
-# C extensions
-*.so
+# Set up logging
+logging.basicConfig(format='%(asctime)s - %(name)s - %(levelname)s - %(message)s', level=logging.INFO)
 
-# Distribution / packaging
-.Python
-build/
-develop-eggs/
-dist/
-downloads/
-eggs/
-.eggs/
-lib/
-lib64/
-parts/
-sdist/
-var/
-wheels/
-share/python-wheels/
-*.egg-info/
-.installed.cfg
-*.egg
-MANIFEST
+# Constants for conversation states
+CHOOSING, TYPING_REPLY = range(2)
 
-# PyInstaller
-#  Usually these files are written by a python script from a template
-#  before PyInstaller builds the exe, so as to inject date/other infos into it.
-*.manifest
-*.spec
+# Initialize product catalog
+product_catalog = {
+    "Realme 11 Pro+ 5G": {"price": 29990},
+    "Realme 10 Pro+ 5G": {"price": 27990}
+}
 
-# Installer logs
-pip-log.txt
-pip-delete-this-directory.txt
+# Initialize user data
+user_data = {
+    "cart": [],
+    "shipping_info": "",
+}
 
-# Unit test / coverage reports
-htmlcov/
-.tox/
-.nox/
-.coverage
-.coverage.*
-.cache
-nosetests.xml
-coverage.xml
-*.cover
-*.py,cover
-.hypothesis/
-.pytest_cache/
-cover/
+# Define a function to display the product catalog
+def display_catalog(update: Update, context: CallbackContext):
+    catalog_text = "Product Catalog:\n"
+    for product, details in product_catalog.items():
+        catalog_text += f"{product}\nPrice: {details['price']} INR\n\n"
+    update.message.reply_text(catalog_text)
 
-# Translations
-*.mo
-*.pot
+# Define a function to add items to the user's cart
+def add_to_cart(update: Update, context: CallbackContext):
+    user_message = update.message.text
+    product = user_message.strip()
+    if product in product_catalog:
+        user_data["cart"].append(product)
+        update.message.reply_text(f"{product} added to your cart.")
+    else:
+        update.message.reply_text("Product not found in the catalog. Please check the product name.")
 
-# Django stuff:
-*.log
-local_settings.py
-db.sqlite3
-db.sqlite3-journal
+# Define a function to view the user's cart
+def view_cart(update: Update, context: CallbackContext):
+    cart_items = user_data.get("cart", [])
+    if cart_items:
+        cart_text = "Your Cart:\n"
+        for item in cart_items:
+            cart_text += f"{item}\n"
+        update.message.reply_text(cart_text)
+    else:
+        update.message.reply_text("Your cart is empty.")
 
-# Flask stuff:
-instance/
-.webassets-cache
+# Define a function to start the order placement process
+def start_order(update: Update, context: CallbackContext):
+    update.message.reply_text("To place an order, please provide your shipping information.")
+    return TYPING_REPLY
 
-# Scrapy stuff:
-.scrapy
+# Define a function to process the shipping information and place the order
+def process_order(update: Update, context: CallbackContext):
+    user_data["shipping_info"] = update.message.text
+    # Implement logic to place the order, calculate total, and provide an order confirmation.
+    order_confirmation = "Order Confirmation:\n"
+    for item in user_data["cart"]:
+        order_confirmation += f"{item}\n"
+    order_confirmation += f"Shipping Info: {user_data['shipping_info']}"
+    update.message.reply_text(order_confirmation)
+    # Clear the cart and shipping info
+    user_data["cart"] = []
+    user_data["shipping_info"] = ""
+    return ConversationHandler.END
 
-# Sphinx documentation
-docs/_build/
+# Create a ConversationHandler to manage user interactions
+conversation_handler = ConversationHandler(
+    entry_points=[CommandHandler("checkout", start_order)],
+    states={
+        TYPING_REPLY: [MessageHandler(Filters.text & ~Filters.command, process_order)],
+    },
+    fallbacks=[],
+)
 
-# PyBuilder
-.pybuilder/
-target/
+# Create an Updater and add handlers
+updater = Updater(token="6753034161:AAHpRjksyz6W8c9vUUlGlVQMJjhKdncy8O4", use_context=True)
+dispatcher = updater.dispatcher
+dispatcher.add_handler(CommandHandler("start", display_catalog))
+dispatcher.add_handler(CommandHandler("addtocart", add_to_cart))
+dispatcher.add_handler(CommandHandler("viewcart", view_cart))
+dispatcher.add_handler(conversation_handler)
 
-# Jupyter Notebook
-.ipynb_checkpoints
-
-# IPython
-profile_default/
-ipython_config.py
-
-# pyenv
-#   For a library or package, you might want to ignore these files since the code is
-#   intended to run in multiple environments; otherwise, check them in:
-# .python-version
-
-# pipenv
-#   According to pypa/pipenv#598, it is recommended to include Pipfile.lock in version control.
-#   However, in case of collaboration, if having platform-specific dependencies or dependencies
-#   having no cross-platform support, pipenv may install dependencies that don't work, or not
-#   install all needed dependencies.
-#Pipfile.lock
-
-# poetry
-#   Similar to Pipfile.lock, it is generally recommended to include poetry.lock in version control.
-#   This is especially recommended for binary packages to ensure reproducibility, and is more
-#   commonly ignored for libraries.
-#   https://python-poetry.org/docs/basic-usage/#commit-your-poetrylock-file-to-version-control
-#poetry.lock
-
-# pdm
-#   Similar to Pipfile.lock, it is generally recommended to include pdm.lock in version control.
-#pdm.lock
-#   pdm stores project-wide configurations in .pdm.toml, but it is recommended to not include it
-#   in version control.
-#   https://pdm.fming.dev/#use-with-ide
-.pdm.toml
-
-# PEP 582; used by e.g. github.com/David-OConnor/pyflow and github.com/pdm-project/pdm
-__pypackages__/
-
-# Celery stuff
-celerybeat-schedule
-celerybeat.pid
-
-# SageMath parsed files
-*.sage.py
-
-# Environments
-.env
-.venv
-env/
-venv/
-ENV/
-env.bak/
-venv.bak/
-
-# Spyder project settings
-.spyderproject
-.spyproject
-
-# Rope project settings
-.ropeproject
-
-# mkdocs documentation
-/site
-
-# mypy
-.mypy_cache/
-.dmypy.json
-dmypy.json
-
-# Pyre type checker
-.pyre/
-
-# pytype static type analyzer
-.pytype/
-
-# Cython debug symbols
-cython_debug/
-
-# PyCharm
-#  JetBrains specific template is maintained in a separate JetBrains.gitignore that can
-#  be found at https://github.com/github/gitignore/blob/main/Global/JetBrains.gitignore
-#  and can be added to the global gitignore or merged into this file.  For a more nuclear
-#  option (not recommended) you can uncomment the following to ignore the entire idea folder.
-#.idea/
+# Start the bot
+updater.start_polling()
+updater.idle()
